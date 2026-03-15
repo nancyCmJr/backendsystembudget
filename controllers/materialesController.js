@@ -1,11 +1,13 @@
 const Material = require("../models/material");
 const preciosService = require("../services/preciosService");
 
+
+// Obtener materiales guardados
 exports.getMateriales = async (req, res) => {
 
   try {
 
-    const materiales = await Material.getAll();
+    const materiales = await Material.find();
 
     res.json(materiales);
 
@@ -18,13 +20,22 @@ exports.getMateriales = async (req, res) => {
 };
 
 
+
+// Agregar material manualmente
 exports.addMaterial = async (req, res) => {
 
   try {
 
-    const { name, price } = req.body;
+    const { nombre, precio, categoria } = req.body;
 
-    const material = await Material.create(name, price);
+    const material = new Material({
+      nombre,
+      precio,
+      categoria,
+      tienda: "manual"
+    });
+
+    await material.save();
 
     res.status(201).json(material);
 
@@ -37,6 +48,8 @@ exports.addMaterial = async (req, res) => {
 };
 
 
+
+// Buscar materiales en Home Depot
 exports.searchMateriales = async (req, res) => {
 
   try {
