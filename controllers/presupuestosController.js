@@ -1,4 +1,4 @@
-const Presupuesto = require("../models/Presupuesto");
+const Presupuesto = require("../models/presupuesto");
 
 // Obtener todos los presupuestos
 exports.obtenerPresupuestos = async (req, res) => {
