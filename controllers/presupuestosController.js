@@ -1,3 +1,5 @@
+const Presupuesto = require("../models/Presupuesto");
+
 exports.actualizarPresupuesto = async (req, res) => {
   try {
 
@@ -25,4 +27,3 @@ exports.eliminarPresupuesto = async (req, res) => {
     res.status(500).json({ mensaje: "Error al eliminar presupuesto" });
   }
 };
-
