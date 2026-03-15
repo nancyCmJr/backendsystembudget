@@ -2,12 +2,15 @@ const mongoose = require("mongoose");
 
 const PresupuestoSchema = new mongoose.Schema({
   cliente: String,
-  direccion: String,
+  descripcion: String,
   materiales: Array,
-  mano_obra: Number,
+  manoObra: Number,
   gastos: Number,
   total: Number,
-  fecha: Date
+  fecha: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 module.exports = mongoose.model("Presupuesto", PresupuestoSchema);
