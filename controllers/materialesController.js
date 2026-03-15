@@ -1,43 +1,56 @@
 const Material = require("../models/material");
+const preciosService = require("../services/preciosService");
 
-exports.obtenerMateriales = async (req, res) => {
+exports.getMateriales = async (req, res) => {
+
   try {
-    const materiales = await Material.find();
+
+    const materiales = await Material.getAll();
+
     res.json(materiales);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener materiales" });
+
+    res.status(500).json({ error: "Error obteniendo materiales" });
+
   }
+
 };
 
-exports.crearMaterial = async (req, res) => {
+
+exports.addMaterial = async (req, res) => {
+
   try {
-    const nuevo = new Material(req.body);
-    await nuevo.save();
-    res.json(nuevo);
+
+    const { name, price } = req.body;
+
+    const material = await Material.create(name, price);
+
+    res.status(201).json(material);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear material" });
+
+    res.status(500).json({ error: "Error agregando material" });
+
   }
+
 };
 
-exports.actualizarMaterial = async (req, res) => {
-  try {
-    const material = await Material.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
 
-    res.json(material);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al actualizar material" });
-  }
-};
+exports.searchMateriales = async (req, res) => {
 
-exports.eliminarMaterial = async (req, res) => {
   try {
-    await Material.findByIdAndDelete(req.params.id);
-    res.json({ mensaje: "Material eliminado" });
+
+    const query = req.query.q;
+
+    const resultados = await preciosService.buscarEnHomeDepot(query);
+
+    res.json(resultados);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al eliminar material" });
+
+    res.status(500).json({ error: "Error buscando materiales" });
+
   }
+
 };
