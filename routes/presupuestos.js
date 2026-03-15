@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controllers/presupuestosController");
+const controller = require("../controllers/presupuestosController.js");
 
 router.get("/", controller.obtenerPresupuestos);
 
