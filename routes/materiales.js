@@ -1,13 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controllers/materialesController");
 
-router.get("/", controller.obtenerMateriales);
+const materialesController = require("../controllers/materialesController");
 
-router.post("/", controller.crearMaterial);
+router.get("/", materialesController.getMateriales);
 
-router.put("/:id", controller.actualizarMaterial);
+router.post("/", materialesController.addMaterial);
 
-router.delete("/:id", controller.eliminarMaterial);
+router.get("/search", materialesController.searchMateriales);
 
 module.exports = router;
