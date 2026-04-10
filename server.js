@@ -7,11 +7,15 @@ dotenv.config();
 
 const app = express();
 
+// Conexión a Mongo
 conectarDB();
 
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
+// LOGIN 
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/presupuestos", require("./routes/presupuestos"));
 app.use("/api/materiales", require("./routes/materiales"));
 

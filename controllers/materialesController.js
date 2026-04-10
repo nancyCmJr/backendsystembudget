@@ -1,43 +1,69 @@
 const Material = require("../models/material");
+const preciosService = require("../services/preciosService");
 
-exports.obtenerMateriales = async (req, res) => {
+
+// Obtener materiales guardados
+exports.getMateriales = async (req, res) => {
+
   try {
+
     const materiales = await Material.find();
+
     res.json(materiales);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener materiales" });
+
+    res.status(500).json({ error: "Error obteniendo materiales" });
+
   }
+
 };
 
-exports.crearMaterial = async (req, res) => {
+
+
+// Agregar material manualmente
+exports.addMaterial = async (req, res) => {
+
   try {
-    const nuevo = new Material(req.body);
-    await nuevo.save();
-    res.json(nuevo);
+
+    const { nombre, precio, categoria } = req.body;
+
+    const material = new Material({
+      nombre,
+      precio,
+      categoria,
+      tienda: "manual"
+    });
+
+    await material.save();
+
+    res.status(201).json(material);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear material" });
+
+    res.status(500).json({ error: "Error agregando material" });
+
   }
+
 };
 
-exports.actualizarMaterial = async (req, res) => {
-  try {
-    const material = await Material.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
 
-    res.json(material);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al actualizar material" });
-  }
-};
 
-exports.eliminarMaterial = async (req, res) => {
+// Buscar materiales en Home Depot
+exports.searchMateriales = async (req, res) => {
+
   try {
-    await Material.findByIdAndDelete(req.params.id);
-    res.json({ mensaje: "Material eliminado" });
+
+    const query = req.query.q;
+
+    const resultados = await preciosService.buscarEnHomeDepot(query);
+
+    res.json(resultados);
+
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al eliminar material" });
+
+    res.status(500).json({ error: "Error buscando materiales" });
+
   }
+
 };
