@@ -1,16 +1,36 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-async function obtenerPrecio(material) {
-  const url = `https://www.homedepot.com.mx/search?q=${material}`;
+exports.buscarEnHomeDepot = async (query) => {
 
-  const { data } = await axios.get(url);
+  const url = `https://www.homedepot.com.mx/search?q=${query}`;
 
-  const $ = cheerio.load(data);
+  const response = await axios.get(url);
 
-  const precio = $(".price").first().text();
+  const $ = cheerio.load(response.data);
 
-  return precio;
-}
+  let productos = [];
 
-module.exports = { obtenerPrecio };
+  $(".product-item").each((i, el) => {
+
+    const nombre = $(el).find(".product-title").text().trim();
+
+    const precioTexto = $(el).find(".price").text().trim();
+
+    const precio = parseFloat(precioTexto.replace(/[^0-9.]/g, ""));
+
+    if (nombre) {
+
+      productos.push({
+        nombre,
+        precio,
+        tienda: "Home Depot"
+      });
+
+    }
+
+  });
+
+  return productos.slice(0, 10);
+
+};
