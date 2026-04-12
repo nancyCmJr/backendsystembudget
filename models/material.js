@@ -14,6 +14,11 @@ const MaterialSchema = new mongoose.Schema({
   },
   tienda: {
     type: String
+  },
+  usuario: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
 });
 

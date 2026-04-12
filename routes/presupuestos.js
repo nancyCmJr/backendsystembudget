@@ -1,13 +1,12 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const controller = require("../controllers/presupuestosController");
+const controller = require('../controllers/presupuestosController');
+const auth = require('../middleware/authMiddleware');
 
-router.get("/", controller.obtenerPresupuestos);
-
-router.post("/", controller.crearPresupuesto);
-
-router.put("/:id", controller.actualizarPresupuesto);
-
-router.delete("/:id", controller.eliminarPresupuesto);
+router.post('/', auth, controller.crearPresupuesto);
+router.get('/', auth, controller.obtenerPresupuestos);
+router.get('/:id', auth, controller.obtenerPresupuestoPorId);
+router.put('/:id', auth, controller.actualizarPresupuesto);
+router.delete('/:id', auth, controller.eliminarPresupuesto);
 
 module.exports = router;

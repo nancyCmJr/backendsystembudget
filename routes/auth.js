@@ -1,14 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/user');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
+const auth = require('../middleware/authMiddleware');
 
 // REGISTRO
 router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    //Validaciones
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Datos incompletos' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Mínimo 6 caracteres' });
+    }
 
     const existe = await User.findOne({ email });
     if (existe) {
@@ -31,11 +40,14 @@ router.post('/register', async (req, res) => {
   }
 });
 
-
 // LOGIN
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Datos incompletos' });
+    }
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -62,5 +74,16 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// OBTENER USUARIO ACTUAL
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 module.exports = router;
