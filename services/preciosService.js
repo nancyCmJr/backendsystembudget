@@ -1,22 +1,16 @@
-const puppeteer = require('puppeteer');
+const axios = require('axios');
+const cheerio = require('cheerio');
 const PrecioHistorial = require('../models/precioHistorial');
 
-const CACHE_TIEMPO = 1000 * 60 * 60; // 1 hora
+const CACHE_TIEMPO = 1000 * 60 * 60;
 const cacheMemoria = new Map();
 
-let browserInstance = null; // reutilizar navegador
-
 // ==============================
-// OBTENER BROWSER (SINGLETON)
+// LIMPIAR PRECIO
 // ==============================
-const getBrowser = async () => {
-  if (!browserInstance) {
-    browserInstance = await puppeteer.launch({
-      headless: "new",
-      args: ['--no-sandbox']
-    });
-  }
-  return browserInstance;
+const limpiarPrecio = (texto) => {
+  if (!texto) return null;
+  return parseFloat(texto.replace(/[^0-9.]/g, ''));
 };
 
 // ==============================
@@ -32,91 +26,102 @@ const buscarEnCacheDB = async (nombre, zona) => {
   });
 };
 
-
 // ==============================
-// SCRAPING (CONTROLADO)
+// SCRAPING MERCADOLIBRE (ESTABLE)
 // ==============================
-const scrapingHomeDepot = async (query) => {
+const scrapingMercadoLibre = async (query) => {
   try {
-    const browser = await getBrowser();
-    const page = await browser.newPage();
+    const url = `https://listado.mercadolibre.com.mx/${encodeURIComponent(query)}`;
 
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    );
-
-    const url = `https://www.homedepot.com.mx/s?q=${encodeURIComponent(query)}`;
-
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-
-    await page.waitForTimeout(3000);
-
-    const resultados = await page.evaluate(() => {
-      const items = document.querySelectorAll('.product-item');
-
-      let productos = [];
-
-      items.forEach((el, i) => {
-        if (i < 5) {
-          const nombre = el.querySelector('.product-title')?.innerText;
-          const precio = el.querySelector('.price')?.innerText;
-
-          if (nombre && precio) {
-            productos.push({
-              nombre,
-              precio: parseFloat(precio.replace(/[^0-9.]/g, '')),
-              tienda: "home_depot"
-            });
-          }
-        }
-      });
-
-      return productos;
+    const { data } = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      }
     });
 
-    await page.close(); 
+    const $ = cheerio.load(data);
+
+    const resultados = [];
+
+    $('.ui-search-result').each((i, el) => {
+      if (i < 5) {
+        const nombre = $(el).find('.ui-search-item__title').text();
+        const precio = $(el).find('.andes-money-amount__fraction').text();
+
+        if (nombre && precio) {
+          resultados.push({
+            nombre: nombre.trim(),
+            precio: limpiarPrecio(precio),
+            tienda: "mercado_libre"
+          });
+        }
+      }
+    });
 
     return resultados;
 
   } catch (error) {
-    console.error("Error scraping:", error);
+    console.log("Error MercadoLibre:", error.message);
     return [];
   }
 };
 
+// ==============================
+// SCRAPING AMAZON (OPCIONAL)
+// ==============================
+const scrapingAmazon = async (query) => {
+  try {
+    const url = `https://www.amazon.com.mx/s?k=${encodeURIComponent(query)}`;
+
+    const { data } = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+
+    const $ = cheerio.load(data);
+    const resultados = [];
+
+    $('.s-result-item').each((i, el) => {
+      if (i < 5) {
+        const nombre = $(el).find('h2 span').text();
+        const precio = $(el).find('.a-price-whole').text();
+
+        if (nombre && precio) {
+          resultados.push({
+            nombre,
+            precio: limpiarPrecio(precio),
+            tienda: "amazon"
+          });
+        }
+      }
+    });
+
+    return resultados;
+
+  } catch (error) {
+    console.log("Error Amazon:", error.message);
+    return [];
+  }
+};
 
 // ==============================
-// COMPARADOR
+// COMPARAR PRECIOS
 // ==============================
 const compararPrecios = (precios) => {
-  if (!precios || precios.length === 0) return null;
+  if (!precios.length) return null;
 
   const ordenados = [...precios].sort((a, b) => a.precio - b.precio);
 
   return {
     mas_barato: ordenados[0],
-    mas_caro: ordenados[ordenados.length - 1]
+    mas_caro: ordenados[ordenados.length - 1],
+    promedio: ordenados.reduce((a, b) => a + b.precio, 0) / ordenados.length
   };
 };
 
-
 // ==============================
-// LIMPIEZA PROGRAMADA
-// ==============================
-setInterval(async () => {
-  try {
-    await PrecioHistorial.deleteMany({
-      fecha: { $lt: new Date(Date.now() - (1000 * 60 * 60 * 24)) }
-    });
-    console.log("Cache DB limpiado");
-  } catch (error) {
-    console.error("Error limpiando cache:", error);
-  }
-}, 1000 * 60 * 60); // cada hora
-
-
-// ==============================
-// OBTENER PRECIOS
+// FUNCIÓN PRINCIPAL
 // ==============================
 const obtenerPrecios = async (nombre, zona) => {
 
@@ -142,7 +147,6 @@ const obtenerPrecios = async (nombre, zona) => {
     }));
 
     cacheMemoria.set(key, datos);
-    setTimeout(() => cacheMemoria.delete(key), CACHE_TIEMPO);
 
     return {
       precios: datos,
@@ -151,25 +155,23 @@ const obtenerPrecios = async (nombre, zona) => {
     };
   }
 
-  // SCRAPING CON RETRY
-  let resultados = await scrapingHomeDepot(nombre);
+  // SCRAPING MULTI-TIENDA
+  const [ml, amazon] = await Promise.all([
+    scrapingMercadoLibre(nombre),
+    scrapingAmazon(nombre)
+  ]);
+
+  let resultados = [...ml, ...amazon];
 
   if (resultados.length === 0) {
-    console.log("Fallback a historial...");
-
-    const historial = await PrecioHistorial
-      .find({ nombre, zona })
-      .sort({ fecha: -1 })
-      .limit(5);
-
-    resultados = historial.map(h => ({
-      nombre: h.nombre,
-      precio: h.precio,
-      tienda: h.tienda
-    }));
+    return {
+      precios: [],
+      comparacion: null,
+      cache: "sin_datos"
+    };
   }
 
-  // GUARDAR DB
+  // GUARDAR EN DB
   for (let item of resultados) {
     await PrecioHistorial.create({
       nombre: item.nombre,
@@ -191,6 +193,5 @@ const obtenerPrecios = async (nombre, zona) => {
 };
 
 module.exports = {
-  obtenerPrecios,
-  compararPrecios
+  obtenerPrecios
 };

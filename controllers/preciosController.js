@@ -20,12 +20,13 @@ exports.obtenerPrecios = async (req, res) => {
 
     res.json(precios);
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: 'Error obteniendo precios'
-    });
-  }
+  }catch (error) {
+  console.error("ERROR PRECIOS:", error);
+  res.status(500).json({ 
+    error: "Error obteniendo precios",
+    detalle: error.message
+  });
+}
 };
 
 
