@@ -45,7 +45,7 @@ const scrapingHomeDepot = async (query) => {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     );
 
-    const url = `https://www.homedepot.com.mx/buscar?q=${encodeURIComponent(query)}`;
+    const url = `https://www.homedepot.com.mx/s?q=${encodeURIComponent(query)}`;
 
     await page.goto(url, { waitUntil: 'domcontentloaded' });
 
