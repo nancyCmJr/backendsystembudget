@@ -10,31 +10,35 @@ const clienteSchema = new mongoose.Schema(
 
     telefono: {
       type: String,
-      trim: true
+      trim: true,
+      default: ''
     },
 
     direccion: {
       type: String,
-      trim: true
+      trim: true,
+      default: ''
     },
 
     email: {
       type: String,
       trim: true,
-      lowercase: true
+      lowercase: true,
+      default: ''
     },
 
-    // para evitar duplicados en sincronización
     local_id: {
-      type: String,
-      unique: true,
-      sparse: true
+      type: String
     },
 
-    // Control de sincronización
     sync: {
       type: Boolean,
       default: true
+    },
+
+    deleted: {
+      type: Boolean,
+      default: false
     },
 
     usuario: {
@@ -44,7 +48,17 @@ const clienteSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true // createdAt y updatedAt automáticamente
+    timestamps: true
+  }
+);
+
+clienteSchema.index(
+  { local_id: 1, usuario: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      local_id: { $type: 'string' }
+    }
   }
 );
 

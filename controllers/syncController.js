@@ -1,106 +1,251 @@
 const Presupuesto = require('../models/presupuesto');
 const Cliente = require('../models/cliente');
+const Material = require('../models/material');
 const { calcularTotal } = require('../services/calculoService');
 
 // ==============================
-// SINCRONIZAR PRESUPUESTO
+// SINCRONIZAR CLIENTES
+// ==============================
+exports.syncClientes = async (req, res) => {
+  try {
+    const clientes = Array.isArray(req.body) ? req.body : [];
+
+    let sincronizados = 0;
+    let eliminados = 0;
+
+    for (const c of clientes) {
+      const localId = String(c.local_id || c.id || '');
+
+      if (!localId) continue;
+
+      if (c.deleted === 1 || c.deleted === true) {
+        await Cliente.findOneAndDelete({
+          local_id: localId,
+          usuario: req.user.id
+        });
+
+        eliminados++;
+        continue;
+      }
+
+      await Cliente.findOneAndUpdate(
+        {
+          local_id: localId,
+          usuario: req.user.id
+        },
+        {
+          nombre: c.nombre,
+          telefono: c.telefono || '',
+          direccion: c.direccion || '',
+          email: c.email || '',
+          local_id: localId,
+          sync: true,
+          deleted: false,
+          usuario: req.user.id
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      );
+
+      sincronizados++;
+    }
+
+    res.json({
+      message: 'Clientes sincronizados correctamente',
+      sincronizados,
+      eliminados
+    });
+
+  } catch (error) {
+    console.error("ERROR SYNC CLIENTES:", error);
+
+    res.status(500).json({
+      error: 'Error sincronizando clientes',
+      detalle: error.message
+    });
+  }
+};
+
+// ==============================
+// SINCRONIZAR MATERIALES
+// ==============================
+exports.syncMateriales = async (req, res) => {
+  try {
+    const materiales = Array.isArray(req.body) ? req.body : [];
+
+    let sincronizados = 0;
+    let eliminados = 0;
+
+    for (const m of materiales) {
+      const localId = String(m.local_id || m.id || '');
+
+      if (!localId) continue;
+
+      if (m.deleted === 1 || m.deleted === true) {
+        await Material.findOneAndDelete({
+          local_id: localId,
+          usuario: req.user.id
+        });
+
+        eliminados++;
+        continue;
+      }
+
+      await Material.findOneAndUpdate(
+        {
+          local_id: localId,
+          usuario: req.user.id
+        },
+        {
+          nombre: m.nombre,
+          precio: Number(m.precio || 0),
+          unidad: m.unidad || 'pieza',
+          origen: m.origen || 'local',
+          categoria: m.categoria || '',
+          tienda: m.tienda || '',
+          local_id: localId,
+          sync: true,
+          deleted: false,
+          usuario: req.user.id
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true
+        }
+      );
+
+      sincronizados++;
+    }
+
+    res.json({
+      message: 'Materiales sincronizados correctamente',
+      sincronizados,
+      eliminados
+    });
+
+  } catch (error) {
+    console.error("ERROR SYNC MATERIALES:", error);
+
+    res.status(500).json({
+      error: 'Error sincronizando materiales',
+      detalle: error.message
+    });
+  }
+};
+
+// ==============================
+// SINCRONIZAR PRESUPUESTO COMPLETO
 // ==============================
 exports.syncPresupuesto = async (req, res) => {
   try {
-    const { presupuesto, materiales, mano_obra, gastos, cliente } = req.body;
+    const {
+      presupuesto,
+      materiales,
+      mano_obra,
+      gastos,
+      cliente
+    } = req.body;
 
-    // Validación básica
     if (!presupuesto || !presupuesto.local_id) {
       return res.status(400).json({
         error: 'Datos de presupuesto incompletos'
       });
     }
 
-    // ==============================
-    // EVITAR DUPLICADOS (POR USUARIO)
-    // ==============================
-    const existe = await Presupuesto.findOne({
-      local_id: presupuesto.local_id,
-      usuario: req.user.id 
-    });
+    const localIdPresupuesto = String(presupuesto.local_id);
 
-    if (existe) {
+    if (presupuesto.deleted === 1 || presupuesto.deleted === true) {
+      await Presupuesto.findOneAndDelete({
+        local_id: localIdPresupuesto,
+        usuario: req.user.id
+      });
+
       return res.json({
-        message: 'Presupuesto ya sincronizado',
-        presupuesto: existe
+        message: 'Presupuesto eliminado en la nube'
       });
     }
 
     // ==============================
-    // CREAR / BUSCAR CLIENTE
+    // CREAR / ACTUALIZAR CLIENTE
     // ==============================
     let clienteDB = null;
 
     if (cliente) {
+      const clienteLocalId = String(cliente.local_id || cliente.id || '');
 
-      // buscar por local_id y usuario
-      if (cliente.local_id) {
-        clienteDB = await Cliente.findOne({
-          local_id: cliente.local_id,
-          usuario: req.user.id
-        });
-      }
-
-      // si no existe → crear
-      if (!clienteDB) {
-        clienteDB = await Cliente.create({
-          nombre: cliente.nombre,
-          telefono: cliente.telefono,
-          direccion: cliente.direccion,
-          email: cliente.email,
-          local_id: cliente.local_id,
-          usuario: req.user.id
-        });
+      if (clienteLocalId) {
+        clienteDB = await Cliente.findOneAndUpdate(
+          {
+            local_id: clienteLocalId,
+            usuario: req.user.id
+          },
+          {
+            nombre: cliente.nombre,
+            telefono: cliente.telefono || '',
+            direccion: cliente.direccion || '',
+            email: cliente.email || '',
+            local_id: clienteLocalId,
+            sync: true,
+            deleted: false,
+            usuario: req.user.id
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true
+          }
+        );
       }
     }
 
-    // ==============================
-    // CREAR PRESUPUESTO
-    // ==============================
-    const nuevoPresupuesto = new Presupuesto({
+    const datosPresupuesto = {
       cliente: clienteDB ? clienteDB._id : null,
-
-      descripcion: presupuesto.descripcion,
+      descripcion: presupuesto.descripcion || '',
       estado: presupuesto.estado || 'pendiente',
-      local_id: presupuesto.local_id,
-
+      fecha: presupuesto.fecha || new Date(),
+      local_id: localIdPresupuesto,
       materiales: materiales || [],
       mano_obra: mano_obra || [],
       gastos: gastos || [],
+      usuario: req.user.id,
+      sync: true,
+      deleted: false
+    };
 
-      usuario: req.user.id, 
-      sync: true
-    });
-
-    // ==============================
-    // CALCULAR TOTAL
-    // ==============================
-    nuevoPresupuesto.total = calcularTotal(
-      nuevoPresupuesto.materiales,
-      nuevoPresupuesto.mano_obra,
-      nuevoPresupuesto.gastos
+    datosPresupuesto.total = calcularTotal(
+      datosPresupuesto.materiales,
+      datosPresupuesto.mano_obra,
+      datosPresupuesto.gastos
     );
 
-    await nuevoPresupuesto.save();
+    const presupuestoDB = await Presupuesto.findOneAndUpdate(
+      {
+        local_id: localIdPresupuesto,
+        usuario: req.user.id
+      },
+      datosPresupuesto,
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    ).populate('cliente');
 
-    // ==============================
-    // RESPUESTA
-    // ==============================
     res.json({
       message: 'Presupuesto sincronizado correctamente',
-      presupuesto: nuevoPresupuesto
+      presupuesto: presupuestoDB
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("ERROR SYNC PRESUPUESTO:", error);
 
     res.status(500).json({
-      error: 'Error en sincronización'
+      error: 'Error en sincronización',
+      detalle: error.message
     });
   }
 };
