@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+// ==============================
+// SUBDOCUMENTOS
+// ==============================
 const materialSchema = new mongoose.Schema({
   nombre: String,
   cantidad: Number,
@@ -19,6 +22,9 @@ const gastoSchema = new mongoose.Schema({
   monto: Number
 });
 
+// ==============================
+// PRESUPUESTO
+// ==============================
 const presupuestoSchema = new mongoose.Schema(
   {
     cliente: {

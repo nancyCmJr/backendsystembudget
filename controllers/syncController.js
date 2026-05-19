@@ -14,7 +14,7 @@ exports.syncClientes = async (req, res) => {
     let eliminados = 0;
 
     for (const c of clientes) {
-      const localId = String(c.local_id || c.id || '');
+      const localId = String(c.local_id || '');
 
       if (!localId) continue;
 
@@ -34,14 +34,14 @@ exports.syncClientes = async (req, res) => {
           usuario: req.user.id
         },
         {
-          nombre: c.nombre,
+          nombre: c.nombre || '',
           telefono: c.telefono || '',
           direccion: c.direccion || '',
           email: c.email || '',
           local_id: localId,
+          usuario: req.user.id,
           sync: true,
-          deleted: false,
-          usuario: req.user.id
+          deleted: false
         },
         {
           upsert: true,
@@ -80,7 +80,7 @@ exports.syncMateriales = async (req, res) => {
     let eliminados = 0;
 
     for (const m of materiales) {
-      const localId = String(m.local_id || m.id || '');
+      const localId = String(m.local_id || '');
 
       if (!localId) continue;
 
@@ -100,16 +100,16 @@ exports.syncMateriales = async (req, res) => {
           usuario: req.user.id
         },
         {
-          nombre: m.nombre,
+          nombre: m.nombre || '',
           precio: Number(m.precio || 0),
           unidad: m.unidad || 'pieza',
           origen: m.origen || 'local',
           categoria: m.categoria || '',
           tienda: m.tienda || '',
           local_id: localId,
+          usuario: req.user.id,
           sync: true,
-          deleted: false,
-          usuario: req.user.id
+          deleted: false
         },
         {
           upsert: true,
@@ -138,7 +138,7 @@ exports.syncMateriales = async (req, res) => {
 };
 
 // ==============================
-// SINCRONIZAR PRESUPUESTO COMPLETO
+// SINCRONIZAR PRESUPUESTO
 // ==============================
 exports.syncPresupuesto = async (req, res) => {
   try {
@@ -158,6 +158,9 @@ exports.syncPresupuesto = async (req, res) => {
 
     const localIdPresupuesto = String(presupuesto.local_id);
 
+    // ==============================
+    // ELIMINAR EN NUBE SI FUE BORRADO LOCALMENTE
+    // ==============================
     if (presupuesto.deleted === 1 || presupuesto.deleted === true) {
       await Presupuesto.findOneAndDelete({
         local_id: localIdPresupuesto,
@@ -170,28 +173,33 @@ exports.syncPresupuesto = async (req, res) => {
     }
 
     // ==============================
-    // CREAR / ACTUALIZAR CLIENTE
+    // CLIENTE
     // ==============================
     let clienteDB = null;
 
-    if (cliente) {
-      const clienteLocalId = String(cliente.local_id || cliente.id || '');
+    if (cliente && cliente.local_id) {
+      const clienteLocalId = String(cliente.local_id);
 
-      if (clienteLocalId) {
+      if (cliente.deleted === 1 || cliente.deleted === true) {
+        await Cliente.findOneAndDelete({
+          local_id: clienteLocalId,
+          usuario: req.user.id
+        });
+      } else {
         clienteDB = await Cliente.findOneAndUpdate(
           {
             local_id: clienteLocalId,
             usuario: req.user.id
           },
           {
-            nombre: cliente.nombre,
+            nombre: cliente.nombre || '',
             telefono: cliente.telefono || '',
             direccion: cliente.direccion || '',
             email: cliente.email || '',
             local_id: clienteLocalId,
+            usuario: req.user.id,
             sync: true,
-            deleted: false,
-            usuario: req.user.id
+            deleted: false
           },
           {
             upsert: true,
@@ -202,6 +210,9 @@ exports.syncPresupuesto = async (req, res) => {
       }
     }
 
+    // ==============================
+    // PRESUPUESTO
+    // ==============================
     const datosPresupuesto = {
       cliente: clienteDB ? clienteDB._id : null,
       descripcion: presupuesto.descripcion || '',
