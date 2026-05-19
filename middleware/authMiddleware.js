@@ -5,14 +5,29 @@ module.exports = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      return res.status(401).json({ error: 'Acceso denegado' });
+      return res.status(401).json({
+        error: 'Acceso denegado. Falta Authorization header'
+      });
     }
 
-    //formato: Bearer TOKEN
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Formato de token inválido. Usa Bearer TOKEN'
+      });
+    }
+
     const token = authHeader.split(' ')[1];
 
-    if (!token) {
-      return res.status(401).json({ error: 'Token requerido' });
+    if (!token || token === 'null' || token === 'undefined') {
+      return res.status(401).json({
+        error: 'Token requerido'
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        error: 'JWT_SECRET no configurado en el servidor'
+      });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -22,6 +37,16 @@ module.exports = (req, res, next) => {
     next();
 
   } catch (error) {
-    res.status(401).json({ error: 'Token inválido' });
+    console.error("ERROR JWT:", error.message);
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'Token expirado. Inicia sesión nuevamente'
+      });
+    }
+
+    return res.status(401).json({
+      error: 'Token inválido'
+    });
   }
 };
